@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ホログラム</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ホログラム">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{
+  --bg:#fff; --ink:#111; --sub:#777; --line:#ddd; --red:#d92d20;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){ --bg:#000; --ink:#eee; --sub:#888; --line:#333; } }
+:root[data-theme="dark"]{ --bg:#000; --ink:#eee; --sub:#888; --line:#333; }
+html{height:100%; scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0; min-height:100%; background:var(--bg); color:var(--ink);
+  font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif; font-size:16px; line-height:1.5;
+  -webkit-tap-highlight-color:transparent}
+button, input{font:inherit; color:inherit}
+button{background:none; border:1px solid var(--line); border-radius:6px; padding:12px; cursor:pointer}
+button.on{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+button:disabled{opacity:.4}
+:focus-visible{outline:2px solid var(--ink); outline-offset:2px}
+.hidden{display:none !important}
+.wrap{max-width:480px; margin:0 auto; padding:20px 16px}
+h1{font-size:1.2rem; margin:0 0 20px}
+.msg{color:var(--sub); font-size:.9rem; min-height:1.5em; margin-top:10px}
+
+/* ---------- 最初の画面 ---------- */
+#start{position:fixed; inset:0; z-index:5; background:#000; color:#f2f4f6; overflow:hidden;
+  display:flex; flex-direction:column; padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+#hero{position:relative; flex:1; min-height:0}
+#heroCv{position:absolute; inset:0; width:100%; height:100%}
+#start .title{position:absolute; left:0; right:0; bottom:4%; text-align:center; pointer-events:none}
+#start .title h1{font-family:"Zen Old Mincho","Hiragino Mincho ProN","Yu Mincho",serif; font-weight:400;
+  font-size:clamp(2.1rem, 11vw, 3.4rem); letter-spacing:.32em; margin:0 0 0 .32em; line-height:1.2}
+#start .title h1 span{display:inline-block}
+#start .title p{margin:.7em 0 0; font-size:.8rem; letter-spacing:.3em; color:rgba(230,240,245,.5)}
+#choose{padding:8px 24px 28px; max-width:460px; width:100%; margin:0 auto}
+.pick{position:relative; display:flex; align-items:baseline; justify-content:space-between; width:100%;
+  background:transparent; color:#f2f4f6; border:0; border-top:1px solid rgba(255,255,255,.18); border-radius:0;
+  padding:20px 4px; text-align:left; overflow:hidden; transition:color .3s}
+.pick:last-of-type{border-bottom:1px solid rgba(255,255,255,.18)}
+.pick b{font-family:"Zen Old Mincho","Hiragino Mincho ProN",serif; font-weight:400; font-size:1.35rem; letter-spacing:.18em}
+.pick small{font-size:.78rem; color:rgba(230,240,245,.5); letter-spacing:.08em; transition:color .3s, transform .4s}
+.pick::before{content:""; position:absolute; left:0; top:0; bottom:0; width:100%;
+  background:linear-gradient(90deg, rgba(120,220,255,0), rgba(120,220,255,.14) 60%, rgba(255,255,255,.22));
+  transform:translateX(-101%); transition:transform .55s cubic-bezier(.2,.7,.2,1)}
+.pick:hover::before, .pick:focus-visible::before, .pick:active::before{transform:translateX(0)}
+.pick:hover small, .pick:focus-visible small{color:#dff6ff; transform:translateX(-6px)}
+.pick:disabled{opacity:.35}
+.pick:focus-visible{outline:1px solid rgba(255,255,255,.6); outline-offset:-1px}
+.credit{display:flex; align-items:center; justify-content:center; gap:12px; margin-top:22px; color:rgba(230,240,245,.62)}
+.credit img{width:46px; height:46px; border-radius:50%; flex:none}
+.credit span{display:block; font-size:.72rem; letter-spacing:.12em; line-height:1.5}
+.credit b{display:block; font-family:"Zen Old Mincho","Hiragino Mincho ProN",serif; font-weight:400; font-size:1rem; letter-spacing:.36em; color:rgba(240,248,252,.85)}
+#startMsg{color:rgba(255,190,170,.9); text-align:center; min-height:1.5em; margin-top:10px; font-size:.85rem}
+@media (prefers-reduced-motion:no-preference){
+  #start .title h1 span{opacity:0; filter:blur(10px); transform:translateY(.3em);
+    animation:glyph 1.4s cubic-bezier(.2,.7,.2,1) forwards; animation-delay:calc(1.1s + var(--i) * .12s)}
+  #start .title p{opacity:0; animation:fade 1.2s ease forwards 2.1s}
+  .pick{opacity:0; transform:translateY(14px); animation:rise .9s cubic-bezier(.2,.7,.2,1) forwards}
+  .pick:nth-of-type(1){animation-delay:2.2s} .pick:nth-of-type(2){animation-delay:2.35s}
+  .credit{opacity:0; animation:fade 1.4s ease forwards 2.7s}
+}
+@keyframes glyph{to{opacity:1; filter:blur(0); transform:none}}
+@keyframes fade{to{opacity:1}}
+@keyframes rise{to{opacity:1; transform:none}}
+
+/* 再生用 */
+#display{position:fixed; inset:0; background:#000; z-index:10; overflow:hidden}
+#stage{position:absolute; inset:0}
+#vid, #photo img{position:absolute; display:block; transform-origin:50% 50%; visibility:hidden}
+#vid{object-fit:fill}
+#back{position:absolute; top:calc(12px + env(safe-area-inset-top,0px)); left:12px; z-index:2;
+  border-color:#444; color:#ccc; background:#000; padding:8px 14px}
+#setup{position:absolute; inset:0; z-index:3; background:#000; display:flex; flex-direction:column; justify-content:center; gap:10px; padding:24px; max-width:420px; margin:0 auto}
+#setup button{border-color:#444; color:#eee}
+#setup .msg{color:#777}
+
+/* リモコン */
+#remote{padding-bottom:calc(100px + env(safe-area-inset-bottom,0px))}
+.head{display:flex; justify-content:space-between; align-items:center; margin-bottom:16px}
+.head h1{margin:0}
+.head span{font-size:.85rem; color:var(--sub)}
+.head button{padding:6px 12px; font-size:.85rem; margin-left:6px}
+.item{display:flex; gap:6px; margin-bottom:6px}
+.item .play{flex:1; min-width:0; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.item .cfg{flex:none; width:5em; font-size:.85rem; padding:12px 0}
+#add{width:100%; border-style:dashed; color:var(--sub); margin-top:6px}
+.panel{border:1px solid var(--line); border-radius:6px; padding:12px; margin:0 0 10px}
+.panel label{display:block; font-size:.85rem; color:var(--sub); margin-bottom:4px}
+#name{width:100%; border:1px solid var(--line); border-radius:6px; padding:10px; background:transparent; margin-bottom:12px}
+#pad{display:block; margin:0 auto; background:#000; border-radius:4px; touch-action:none; cursor:grab}
+.tools{display:flex; gap:6px; flex-wrap:wrap; margin-top:10px}
+.tools button{padding:8px 12px; font-size:.9rem}
+.tools .sp{flex:1}
+.tools span{align-self:center; font-size:.85rem; color:var(--sub); min-width:3.5em}
+.hint{font-size:.8rem; color:var(--sub); margin-top:8px}
+#stop{position:fixed; left:16px; right:16px; bottom:calc(16px + env(safe-area-inset-bottom,0px)); max-width:448px; margin:0 auto;
+  background:var(--red); color:#fff; border:0; border-radius:10px; padding:16px; font-size:1.1rem; font-weight:700}
+</style>
+</head>
+<body>
+
+<div id="start">
+  <div id="hero">
+    <canvas id="heroCv" aria-hidden="true"></canvas>
+    <div class="title">
+      <h1 aria-label="ホログラム"><span style="--i:0">ホ</span><span style="--i:1">ロ</span><span style="--i:2">グ</span><span style="--i:3">ラ</span><span style="--i:4">ム</span></h1>
+      <p>光で浮かぶ、ちいさな立体</p>
+    </div>
+  </div>
+  <div id="choose">
+    <button class="pick" id="bDisplay"><b>再生用</b><small>プラ板をのせるスマホ</small></button>
+    <button class="pick" id="bRemote"><b>リモコン</b><small>手元で操作する端末</small></button>
+    <div id="startMsg" role="status"></div>
+    <div class="credit">
+      <img alt="SCOPEのロゴ" src="data:image/webp;base64,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">
+      <div><span>東京理科大学　理科教育サークル</span><b>SCOPE</b></div>
+    </div>
+  </div>
+</div>
+
+<div id="display" class="hidden">
+  <div id="stage">
+    <video id="vid" muted playsinline webkit-playsinline loop preload="auto"></video>
+    <div id="photo"><img alt=""><img alt=""><img alt=""><img alt=""></div>
+  </div>
+  <button id="back" class="hidden">戻る</button>
+  <div id="setup">
+    <button id="go">開始</button>
+    <button id="setupBack">戻る</button>
+    <div class="msg" id="dStatus"></div>
+  </div>
+</div>
+
+<div id="remote" class="wrap hidden">
+  <div class="head"><h1>リモコン</h1><span><span id="link"></span><button id="rBack">戻る</button></span></div>
+  <div id="list"></div>
+  <input type="file" id="files" accept="video/*,image/*" multiple class="hidden">
+  <button id="add">＋ 追加</button>
+  <div class="msg" id="sendMsg"></div>
+  <button id="stop">停止</button>
+</div>
+
+<div id="panel" class="panel hidden">
+  <label for="name">名前</label>
+  <input id="name" maxlength="40" autocomplete="off">
+  <canvas id="pad"></canvas>
+  <div class="tools">
+    <button id="zOut" aria-label="小さく">－</button>
+    <span id="size"></span>
+    <button id="zIn" aria-label="大きく">＋</button>
+    <button id="rL" aria-label="左に90度回す">↺</button>
+    <span id="angle"></span>
+    <button id="rR" aria-label="右に90度回す">↻</button>
+    <button id="gIn" class="photo">間隔 −</button>
+    <button id="gOut" class="photo">間隔 ＋</button>
+    <span class="sp"></span>
+    <button id="reset">リセット</button>
+    <button id="del">削除</button>
+  </div>
+  <div class="hint">ドラッグで移動。スマホは2本指でつまむと大きさ、ひねると向き。パソコンはホイールで大きさ、Shift＋ホイールで向き。↺↻は90度ずつ回します。</div>
+</div>
+
+<script>
+/* 最初の画面のアニメーション: ゆっくり回るピラミッドと、その中に浮かぶ光 */
+(() => {
+  const cv = document.getElementById("heroCv"), ctx = cv.getContext("2d"), start = document.getElementById("start");
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let W = 0, H = 0, dpr = 1, raf = 0, t0 = performance.now();
+  const dots = Array.from({length:70}, () => ({x:Math.random()*2-1, y:Math.random(), z:Math.random()*2-1, s:Math.random()*.6+.2, p:Math.random()*6.28}));
+  function size(){
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    W = cv.clientWidth; H = cv.clientHeight;
+    cv.width = W*dpr; cv.height = H*dpr;
+  }
+  addEventListener("resize", size);
+  // ピラミッド(先が下の四角すい台)
+  const TOP = 1.25, BOT = .16, YT = -.95, YB = .72;
+  const V = [];
+  for (const [y, r] of [[YT, TOP], [YB, BOT]]) for (const [a, b] of [[-1,-1],[1,-1],[1,1],[-1,1]]) V.push([a*r, y, b*r]);
+  const E = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+  const F = [[0,1,5,4],[1,2,6,5],[2,3,7,6],[3,0,4,7]];
+  function frame(now){
+    const t = (now - t0)/1000, intro = still ? 1 : Math.min(1, t/1.8), ease = 1 - Math.pow(1 - intro, 3);
+    const S = Math.min(W*.27, H*.22), cx = W/2, cy = H*.44;
+    const ry = still ? .55 : t*.28 + .55, rx = -.32;
+    const cy_ = Math.cos(ry), sy = Math.sin(ry), cx_ = Math.cos(rx), sx = Math.sin(rx);
+    const P = ([x, y, z]) => {
+      const X = x*cy_ - z*sy, Z0 = x*sy + z*cy_;
+      const Y = y*cx_ - Z0*sx, Z = y*sx + Z0*cx_;
+      const k = 7/(7 + Z);
+      return [cx + X*S*k, cy + Y*S*k, Z];
+    };
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0, 0, W, H);
+
+    // 足もとのスマホ画面の光
+    const g0 = ctx.createRadialGradient(cx, cy + YB*S + 8, 0, cx, cy + YB*S + 8, S*1.1);
+    g0.addColorStop(0, `rgba(120,215,255,${.22*ease})`); g0.addColorStop(1, "rgba(120,215,255,0)");
+    ctx.fillStyle = g0; ctx.fillRect(0, 0, W, H);
+
+    // ただよう粒
+    for (const d of dots) {
+      const y = ((d.y - t*.03*d.s) % 1 + 1) % 1;
+      const [px, py, pz] = P([d.x*1.6, 1.2 - y*2.6, d.z*1.6]);
+      const a = (.25 + .35*Math.sin(t*1.7 + d.p)) * ease * (1 - Math.abs(y - .5)*1.6);
+      if (a <= 0) continue;
+      ctx.fillStyle = `rgba(210,240,255,${a})`;
+      ctx.beginPath(); ctx.arc(px, py, (pz < 0 ? 1.3 : .8)*d.s + .3, 0, 6.3); ctx.fill();
+    }
+
+    // 面(うすいガラス)
+    const pv = V.map(P);
+    F.map(f => ({f, z:f.reduce((a, i) => a + pv[i][2], 0)/4})).sort((a, b) => b.z - a.z).forEach(({f, z}) => {
+      const gr = ctx.createLinearGradient(pv[f[0]][0], pv[f[0]][1], pv[f[2]][0], pv[f[2]][1]);
+      const sheen = .5 + .5*Math.sin(ry*2 + f[0]);
+      gr.addColorStop(0, `rgba(255,255,255,${(.02 + .07*sheen)*ease})`);
+      gr.addColorStop(1, `rgba(140,220,255,${.015*ease})`);
+      ctx.fillStyle = gr; ctx.beginPath();
+      f.forEach((i, n) => n ? ctx.lineTo(pv[i][0], pv[i][1]) : ctx.moveTo(pv[i][0], pv[i][1]));
+      ctx.closePath(); ctx.fill();
+    });
+
+    // 中に浮かぶ光(ホログラム)
+    const bob = Math.sin(t*1.1)*.05, [ox, oy] = P([0, -.12 + bob, 0]), r = S*.3*ease;
+    if (r > 0) {
+      ctx.save(); ctx.globalCompositeOperation = "lighter";
+      const g1 = ctx.createRadialGradient(ox, oy, 0, ox, oy, r*2.4);
+      g1.addColorStop(0, "rgba(160,235,255,.55)"); g1.addColorStop(.35, "rgba(90,190,255,.18)"); g1.addColorStop(1, "rgba(90,190,255,0)");
+      ctx.fillStyle = g1; ctx.beginPath(); ctx.arc(ox, oy, r*2.4, 0, 6.3); ctx.fill();
+      // 回る輪
+      for (let k = 0; k < 3; k++) {
+        ctx.beginPath();
+        ctx.ellipse(ox, oy, r*(1.05 + k*.28), r*(.22 + .12*Math.sin(t*.9 + k*2)), Math.sin(t*.4 + k)*.5 + k*1.05, 0, 6.3);
+        ctx.strokeStyle = `rgba(200,245,255,${.28 - k*.07})`; ctx.lineWidth = 1; ctx.stroke();
+      }
+      // 走査線
+      ctx.beginPath(); ctx.arc(ox, oy, r*.62, 0, 6.3); ctx.clip();
+      for (let yy = -r; yy < r; yy += 3) {
+        const a = .12 + .1*Math.sin(yy*.35 - t*9);
+        ctx.fillStyle = `rgba(230,250,255,${a})`; ctx.fillRect(ox - r, oy + yy, r*2, 1);
+      }
+      ctx.restore();
+    }
+
+    // 辺(線が描かれていく)
+    ctx.lineCap = "round";
+    E.forEach(([a, b], n) => {
+      const local = Math.max(0, Math.min(1, ease*1.6 - n*.05));
+      if (!local) return;
+      const A = pv[a], B = pv[b], front = (A[2] + B[2]) < 0;
+      ctx.strokeStyle = `rgba(235,248,255,${front ? .85 : .3})`; ctx.lineWidth = front ? 1.2 : .8;
+      ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(A[0] + (B[0]-A[0])*local, A[1] + (B[1]-A[1])*local); ctx.stroke();
+    });
+
+    if (!still) raf = requestAnimationFrame(frame);
+  }
+  function run(){ cancelAnimationFrame(raf); size(); raf = requestAnimationFrame(frame); }
+  // 最初の画面が見えている間だけ動かす
+  new MutationObserver(() => { start.classList.contains("hidden") ? cancelAnimationFrame(raf) : run(); })
+    .observe(start, {attributes:true, attributeFilter:["class"]});
+  run();
+})();
+</script>
+<script>
+(() => {
+"use strict";
+const $ = id => document.getElementById(id);
+const ROOM = "holo-q7x2m9k4t8";   // 部屋名(固定)。リモコンだけがこの名前を使い、1台に限られる
+const ICE = {config:{iceServers:[{urls:"stun:stun.l.google.com:19302"}]}};
+const DEF = {scale:1, x:0, y:0, rot:0, gap:0.02};
+const def = s => Object.assign({}, DEF, s || {});
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+};
+// 端末内の保存場所(IndexedDB)
+function makeIdb(dbName){
+  let dbp = null;
+  const open = () => dbp || (dbp = new Promise((res, rej) => {
+    const r = indexedDB.open(dbName, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("media", {keyPath:"id"});
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  }));
+  const tx = async (mode, fn) => {
+    const db = await open();
+    return new Promise((res, rej) => {
+      const t = db.transaction("media", mode), out = fn(t.objectStore("media"));
+      t.oncomplete = () => res(out && out.result); t.onerror = () => rej(t.error);
+    });
+  };
+  return {
+    all: () => tx("readonly", s => s.getAll()),
+    get: id => tx("readonly", s => s.get(id)),
+    put: rec => tx("readwrite", s => s.put(rec)),
+    del: id => tx("readwrite", s => s.delete(id))
+  };
+}
+const mediaSize = (blob, photo) => new Promise(res => {
+  const url = URL.createObjectURL(blob), done = (w, h, bad) => { URL.revokeObjectURL(url); res({w, h, bad}); };
+  if (photo) { const im = new Image(); im.onload = () => done(im.naturalWidth, im.naturalHeight, false); im.onerror = () => done(16, 9, true); im.src = url; return; }
+  const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.preload = "metadata";
+  v.onloadedmetadata = () => done(v.videoWidth || 16, v.videoHeight || 9, false);
+  v.onerror = () => done(16, 9, true); v.src = url;
+});
+
+let peer = null, role = null, timers = [];
+
+/* ---------- start ---------- */
+function enter(r){
+  if (typeof Peer === "undefined") { $("startMsg").textContent = "ネットにつながっていません"; return; }
+  $("bDisplay").disabled = $("bRemote").disabled = true;
+  $("startMsg").textContent = "";
+  let ok = false;
+  // リモコンは固定の名前(1台だけ)、再生用は毎回ちがう名前(何台でも)
+  const p = r === "remote" ? new Peer(ROOM + "-remote", ICE) : new Peer(ICE);
+  p.on("open", () => {
+    ok = true; peer = p; role = r;
+    $("bDisplay").disabled = $("bRemote").disabled = false;
+    $("start").classList.add("hidden");
+    r === "display" ? startDisplay() : startRemote();
+  });
+  p.on("error", e => {
+    if (ok) return;
+    $("bDisplay").disabled = $("bRemote").disabled = false; p.destroy();
+    $("startMsg").textContent = e.type === "unavailable-id" ? "リモコンはもう別の端末が使っています" : "接続できませんでした";
+  });
+  p.on("disconnected", () => { if (peer === p) setTimeout(() => { try { p.reconnect(); } catch(e){} }, 1500); });
+}
+$("bDisplay").onclick = () => enter("display");
+$("bRemote").onclick = () => enter("remote");
+addEventListener("pagehide", () => peer && peer.destroy());
+
+function leave(){
+  timers.forEach(clearInterval); timers = [];
+  if (role === "display") stopDisplay(); else stopRemote();
+  if (peer) peer.destroy();
+  peer = null; role = null;
+  $("display").classList.add("hidden"); $("remote").classList.add("hidden");
+  $("start").classList.remove("hidden");
+}
+
+/* ================= 再生用(何台でも) ================= */
+const dIdb = makeIdb("holo-display");
+const vid = $("vid"), imgs = [...document.querySelectorAll("#photo img")];
+let dConn = null, dPending = null, files = new Map();   // id -> {id, photo, url, w, h, bad}
+let dSettings = {}, dState = {id:null, playing:false}, running = false, curVid = null, lock = null, incoming = null, unlocked = false;
+
+async function startDisplay(){
+  $("display").classList.remove("hidden"); $("setup").classList.remove("hidden");
+  for (const f of files.values()) URL.revokeObjectURL(f.url);
+  files.clear();
+  try { for (const rec of await dIdb.all()) await addFile(rec); } catch(e){}
+  dStatus(); dConnect(); timers.push(setInterval(dConnect, 3000));
+}
+function stopDisplay(){
+  running = false; vid.pause(); vid.removeAttribute("src"); vid.load(); curVid = null;
+  if (dConn) try { dConn.close(); } catch(e){}
+  dConn = null;
+  try { document.fullscreenElement && document.exitFullscreen(); } catch(e){}
+  try { lock && lock.release(); } catch(e){} lock = null;
+}
+function dStatus(){
+  const on = dConn && dConn.open;
+  $("dStatus").textContent = (on ? "リモコンと接続中" : "リモコンを待っています") + `　保存済み ${files.size}件`;
+}
+async function addFile(rec){
+  const old = files.get(rec.id); if (old) URL.revokeObjectURL(old.url);
+  const size = await mediaSize(rec.blob, rec.photo);
+  files.set(rec.id, {id:rec.id, photo:rec.photo, url:URL.createObjectURL(rec.blob), w:size.w, h:size.h, bad:size.bad});
+  if (curVid === rec.id) curVid = null;
+}
+async function dropFile(id){
+  const f = files.get(id); if (f) URL.revokeObjectURL(f.url);
+  files.delete(id); try { await dIdb.del(id); } catch(e){}
+  if (curVid === id) { vid.pause(); curVid = null; }
+}
+// 再生用からリモコンにつなぎにいく(リモコンがあとから来ても、再生用が途中から入ってもつながる)
+function dConnect(){
+  if (!peer || peer.disconnected || (dConn && dConn.open)) return;
+  if (dPending) try { dPending.close(); } catch(e){}
+  const c = dPending = peer.connect(ROOM + "-remote", {reliable:true});
+  c.on("open", () => {
+    dPending = null; dConn = c; dStatus();
+    c.send({t:"hello", have:[...files.keys()], screen:{w:innerWidth, h:innerHeight}});
+  });
+  c.on("data", onDisplayData);
+  c.on("close", () => { if (dConn === c) { dConn = null; dStatus(); } });
+  c.on("error", () => {});
+}
+async function onDisplayData(m){
+  if (!m) return;
+  if (m.t === "sync") {             // つないだ直後: 一覧・設定・いま再生中のもの
+    const keep = new Set(m.ids || []);
+    for (const id of [...files.keys()]) if (!keep.has(id)) await dropFile(id);
+    dSettings = m.settings || {}; dState = m.state || {id:null, playing:false};
+    dStatus(); apply(true);
+  }
+  if (m.t === "play") { dState = {id:m.id, playing:true}; apply(true); }
+  if (m.t === "stop") { dState = {id:null, playing:false}; apply(); }
+  if (m.t === "set") { dSettings[m.id] = def(m.s); layout(); }
+  if (m.t === "del") { await dropFile(m.id); dStatus(); apply(); }
+  if (m.t === "begin") incoming = {id:String(m.id), type:String(m.type), photo:!!m.photo, parts:[]};
+  if (m.t === "chunk" && incoming) incoming.parts.push(m.data);
+  if (m.t === "end" && incoming) {
+    const rec = {id:incoming.id, photo:incoming.photo, blob:new Blob(incoming.parts, {type:incoming.type})};
+    incoming = null;
+    let ok = true;
+    try { await dIdb.put(rec); } catch(e){ ok = false; }
+    await addFile(rec);
+    if (dConn) dConn.send({t:"saved", id:rec.id, ok, bad:files.get(rec.id).bad});
+    dStatus(); apply(dState.id === rec.id);
+  }
+}
+function goFull(){
+  const el = document.documentElement;
+  if (document.fullscreenElement || document.webkitFullscreenElement) return;
+  const fn = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (fn) try { const r = fn.call(el, {navigationUI:"hide"}); r && r.catch && r.catch(() => {}); } catch(e){}
+}
+$("go").onclick = async () => {
+  // タップの操作中に一度再生しておくと、あとでリモコンから再生できる(iPhoneの省電力モード対策)
+  const first = [...files.values()].find(f => !f.photo && !f.bad);
+  if (first && !unlocked) {
+    curVid = first.id; vid.src = first.url;
+    const p = vid.play();
+    if (p) p.then(() => { unlocked = true; apply(); }).catch(() => {});
+  }
+  $("setup").classList.add("hidden"); running = true; goFull();
+  try { lock = await navigator.wakeLock.request("screen"); } catch(e){}
+  apply();
+};
+$("setupBack").onclick = leave;
+let backTimer = 0;
+$("stage").addEventListener("click", () => {
+  goFull();
+  $("back").classList.remove("hidden");
+  clearTimeout(backTimer); backTimer = setTimeout(() => $("back").classList.add("hidden"), 3000);
+});
+$("back").onclick = () => {
+  $("back").classList.add("hidden");
+  running = false; vid.pause(); layout();
+  $("setup").classList.remove("hidden");
+};
+document.addEventListener("visibilitychange", async () => {
+  if (role === "display" && running && !document.hidden) { try { lock = await navigator.wakeLock.request("screen"); } catch(e){} apply(); }
+});
+addEventListener("resize", () => {
+  if (role !== "display") return;
+  layout();
+  if (dConn && dConn.open) dConn.send({t:"screen", screen:{w:innerWidth, h:innerHeight}});
+});
+
+const curFile = () => (running && dState.playing) ? files.get(dState.id) || null : null;
+function apply(restart){
+  const f = curFile();
+  if (!f || f.photo) { if (unlocked || !running) vid.pause(); layout(); return; }
+  if (curVid !== f.id) { curVid = f.id; vid.src = f.url; }
+  else if (restart) { try { vid.currentTime = 0; } catch(e){} }
+  vid.play().catch(() => {});
+  layout();
+}
+vid.addEventListener("loadedmetadata", () => layout());
+function layout(){
+  const W = innerWidth, H = innerHeight, m = Math.min(W, H), f = curFile();
+  vid.style.visibility = (f && !f.photo) ? "visible" : "hidden";
+  imgs.forEach(im => im.style.visibility = (f && f.photo) ? "visible" : "hidden");
+  if (!f) return;
+  const s = def(dSettings[f.id]), cx = W/2 + s.x*m, cy = H/2 + s.y*m;
+  if (f.photo) {
+    // 写真1枚を4つ、上辺が外側を向くように並べる(反射で正しい向きになるよう左右反転)
+    const k = Math.min(m*.28*s.scale/f.w, m*.28*s.scale/f.h), w = f.w*k, h = f.h*k, d = w/2 + s.gap*m + h/2;
+    imgs.forEach((im, i) => {
+      if (im.getAttribute("src") !== f.url) im.src = f.url;
+      Object.assign(im.style, {width:w+"px", height:h+"px", left:(cx - w/2)+"px", top:(cy - h/2)+"px",
+        transform:`rotate(${i*90 + s.rot}deg) translateY(${-d}px) scaleX(-1)`});
+    });
+    return;
+  }
+  const vw = vid.videoWidth || f.w, vh = vid.videoHeight || f.h;
+  const k = Math.min(m*s.scale/vw, m*s.scale/vh), w = vw*k, h = vh*k;
+  Object.assign(vid.style, {width:w+"px", height:h+"px", left:(cx - w/2)+"px", top:(cy - h/2)+"px", transform:`rotate(${s.rot}deg)`});
+}
+
+/* ================= リモコン(1台) ================= */
+// 動画・写真の本体はリモコンに保存し、つながった再生用へ配る
+const rIdb = makeIdb("holo-remote");
+let items = [];                                   // [{id, name, photo, type, w, h, order}]
+let settings = store.get("holo-r-settings", {});  // id -> {scale,x,y,gap}
+let state = store.get("holo-r-state", {id:null, playing:false});
+let conns = new Set(), screen = {w:390, h:844}, openId = null, badIds = new Set();
+const bcast = m => conns.forEach(c => { if (c.open) try { c.send(m); } catch(e){} });
+
+async function startRemote(){
+  $("remote").classList.remove("hidden"); $("sendMsg").textContent = ""; openId = null;
+  try { items = (await rIdb.all()).map(({blob, ...meta}) => meta).sort((a, b) => a.order - b.order); } catch(e){ items = []; }
+  render();
+  peer.on("connection", c => {
+    c.q = Promise.resolve();
+    c.on("open", () => { conns.add(c); render(); });
+    c.on("data", m => onRemoteData(c, m));
+    c.on("close", () => { conns.delete(c); render(); });
+    c.on("error", () => {});
+  });
+}
+function stopRemote(){ conns.forEach(c => { try { c.close(); } catch(e){} }); conns.clear(); }
+
+const acks = new Map();   // "connId:itemId" -> resolve
+function onRemoteData(c, m){
+  if (!m) return;
+  if (m.t === "hello") {
+    if (m.screen) screen = {w:+m.screen.w || 390, h:+m.screen.h || 844};
+    const have = new Set(m.have || []);
+    c.send({t:"sync", ids:items.map(i => i.id), settings, state});
+    for (const it of items) if (!have.has(it.id)) queueSend(c, it);
+    render();
+  }
+  if (m.t === "screen" && m.screen) { screen = {w:+m.screen.w || 390, h:+m.screen.h || 844}; if (openId) sizePad(); }
+  if (m.t === "saved") {
+    if (m.bad) badIds.add(m.id);
+    const k = c.connectionId + ":" + m.id, r = acks.get(k);
+    if (r) { acks.delete(k); r(m.ok); }
+  }
+}
+// 1台の再生用へ、1件ずつ順番に送る
+function queueSend(c, it){
+  c.q = c.q.then(async () => {
+    if (!c.open) return;
+    const rec = await rIdb.get(it.id); if (!rec) return;
+    const buf = await rec.blob.arrayBuffer(), CH = 64*1024;
+    c.send({t:"begin", id:it.id, type:rec.type, photo:rec.photo});
+    for (let i = 0; i < buf.byteLength; i += CH) {
+      if (!c.open) return;
+      while (c.dataChannel && c.dataChannel.bufferedAmount > 1024*1024) await new Promise(r => setTimeout(r, 30));
+      c.send({t:"chunk", data:buf.slice(i, i + CH)});
+      progress(it, Math.round(Math.min(100, (i + CH) / buf.byteLength * 100)));
+    }
+    const ok = await new Promise(r => {
+      acks.set(c.connectionId + ":" + it.id, r);
+      setTimeout(() => { if (acks.delete(c.connectionId + ":" + it.id)) r(false); }, 60000);
+      c.send({t:"end"});
+    });
+    progress(it, ok ? "done" : "fail");
+  }).catch(() => {});
+}
+let sendingCount = 0;
+function progress(it, p){
+  if (p === "done" || p === "fail") {
+    $("sendMsg").textContent = p === "fail" ? `「${it.name}」を送れませんでした`
+      : badIds.has(it.id) ? `「${it.name}」は再生用の端末で再生できない形式です(mp4で入れ直してください)` : `「${it.name}」を再生用に送りました`;
+    render(); return;
+  }
+  $("sendMsg").textContent = `再生用へ送信中「${it.name}」${p}%`;
+}
+
+function setState(s){ state = s; store.set("holo-r-state", state); render(); }
+function play(id){ setState({id, playing:true}); bcast({t:"play", id}); }
+$("stop").onclick = () => { setState({id:null, playing:false}); bcast({t:"stop"}); };
+$("rBack").onclick = leave;
+
+function render(){
+  $("link").textContent = conns.size ? `再生用 ${conns.size}台` : "再生用なし";
+  const L = $("list");
+  $("panel").classList.add("hidden"); document.body.appendChild($("panel"));
+  L.textContent = "";
+  for (const it of items) {
+    const row = document.createElement("div"); row.className = "item";
+    const b = document.createElement("button"); b.className = "play";
+    const playing = state.playing && state.id === it.id;
+    b.textContent = (playing ? "▶ " : "") + it.name + (badIds.has(it.id) ? "(再生できない形式)" : "");
+    b.classList.toggle("on", playing);
+    b.onclick = () => play(it.id);
+    const c = document.createElement("button"); c.className = "cfg";
+    c.textContent = openId === it.id ? "閉じる" : "設定";
+    c.onclick = () => { openId = openId === it.id ? null : it.id; if (openId) play(it.id); else render(); };
+    row.append(b, c); L.appendChild(row);
+    if (openId === it.id) {
+      L.appendChild($("panel")); $("panel").classList.remove("hidden");
+      if (document.activeElement !== $("name")) $("name").value = it.name;
+      document.querySelectorAll(".photo").forEach(x => x.classList.toggle("hidden", !it.photo));
+      sizePad();
+    }
+  }
+  if (!items.length) { const p = document.createElement("div"); p.className = "msg"; p.textContent = "まだありません。下の「＋ 追加」から入れてください"; L.appendChild(p); }
+}
+
+/* 追加: リモコンに保存してから、つながっている再生用すべてへ送る */
+$("add").onclick = () => $("files").click();
+$("files").onchange = async () => {
+  const fl = [...$("files").files]; $("files").value = "";
+  for (const f of fl) {
+    const photo = f.type.startsWith("image/");
+    const type = f.type || (photo ? "image/jpeg" : "video/mp4");
+    const size = await mediaSize(f, photo);
+    const it = {id:Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+                name:f.name.replace(/\.[^.]+$/, "").slice(0, 40), photo, type, w:size.w, h:size.h, order:Date.now()};
+    try { await rIdb.put(Object.assign({blob:new Blob([await f.arrayBuffer()], {type})}, it)); }
+    catch(e){ $("sendMsg").textContent = `「${it.name}」を保存できませんでした`; continue; }
+    items.push(it);
+    conns.forEach(c => queueSend(c, it));
+  }
+  $("sendMsg").textContent = conns.size ? $("sendMsg").textContent : `${fl.length}件 追加しました。再生用がつながると自動で送られます`;
+  // 追加したものは、すぐ名前を付けられるように設定を開く
+  if (fl.length) { openId = items[items.length - 1].id; render(); $("name").focus(); $("name").select(); }
+};
+
+/* 名前 */
+let nameTimer = 0;
+$("name").addEventListener("input", () => {
+  const it = items.find(x => x.id === openId); if (!it) return;
+  it.name = $("name").value.trim().slice(0, 40) || "無題";
+  const btn = [...document.querySelectorAll(".item")].find(r => r.nextSibling === $("panel"));
+  if (btn) btn.querySelector(".play").textContent = (state.playing && state.id === it.id ? "▶ " : "") + it.name;
+  clearTimeout(nameTimer);
+  nameTimer = setTimeout(async () => { try { const rec = await rIdb.get(it.id); if (rec) { rec.name = it.name; await rIdb.put(rec); } } catch(e){} }, 500);
+});
+$("name").addEventListener("keydown", e => { if (e.key === "Enter") $("name").blur(); });
+
+/* 設定: 位置と大きさ */
+const pad = $("pad"), pc = pad.getContext("2d");
+let pw = 0, ph = 0;
+function sizePad(){
+  const ar = screen.w / screen.h;
+  pw = Math.min($("panel").clientWidth - 26, innerHeight*0.45*ar); ph = pw / ar;
+  const d = Math.min(devicePixelRatio || 1, 2);
+  pad.style.width = pw + "px"; pad.style.height = ph + "px";
+  pad.width = pw*d; pad.height = ph*d; drawPad();
+}
+addEventListener("resize", () => role === "remote" && openId && sizePad());
+function drawPad(){
+  const it = items.find(x => x.id === openId); if (!it) return;
+  const W = pad.width, H = pad.height, m = Math.min(W, H), s = def(settings[it.id]);
+  pc.setTransform(1,0,0,1,0,0); pc.fillStyle = "#000"; pc.fillRect(0, 0, W, H);
+  const box = (x, y, w, h) => {
+    pc.fillStyle = "rgba(255,255,255,.15)"; pc.fillRect(x, y, w, h);
+    pc.strokeStyle = "#fff"; pc.lineWidth = 2; pc.strokeRect(x, y, w, h);
+  };
+  const cx = W/2 + s.x*m, cy = H/2 + s.y*m;
+  if (it.photo) {
+    const k = Math.min(m*.28*s.scale/it.w, m*.28*s.scale/it.h), w = it.w*k, h = it.h*k;
+    for (let i = 0; i < 4; i++) {
+      pc.setTransform(1,0,0,1,0,0); pc.translate(cx, cy); pc.rotate(i*Math.PI/2 + s.rot*Math.PI/180);
+      box(-w/2, -(w/2 + s.gap*m) - h, w, h);
+      pc.fillStyle = "#fff"; pc.fillRect(-w/2, -(w/2 + s.gap*m) - h, w, 4);   // 太い線 = 上
+    }
+    pc.setTransform(1,0,0,1,0,0);
+  } else {
+    const k = Math.min(m*s.scale/it.w, m*s.scale/it.h), w = it.w*k, h = it.h*k;
+    pc.translate(cx, cy); pc.rotate(s.rot*Math.PI/180);
+    box(-w/2, -h/2, w, h);
+    pc.fillStyle = "#fff"; pc.fillRect(-w/2, -h/2, w, 4);   // 太い線 = 上
+    pc.setTransform(1,0,0,1,0,0);
+  }
+  $("size").textContent = Math.round(s.scale*100) + "%";
+  $("angle").textContent = Math.round(s.rot) + "°";
+}
+function update(s){
+  settings[openId] = s; drawPad();
+  bcast({t:"set", id:openId, s});
+  clearTimeout(update.t); update.t = setTimeout(() => store.set("holo-r-settings", settings), 400);
+}
+const edit = fn => { if (!openId) return; const s = def(settings[openId]); fn(s); update(s); };
+$("zIn").onclick  = () => edit(s => s.scale = clamp(s.scale * 1.05, .15, 3));
+$("zOut").onclick = () => edit(s => s.scale = clamp(s.scale / 1.05, .15, 3));
+$("gIn").onclick  = () => edit(s => s.gap = clamp(s.gap - .01, -.1, .4));
+$("gOut").onclick = () => edit(s => s.gap = clamp(s.gap + .01, -.1, .4));
+$("reset").onclick = () => edit(s => Object.assign(s, DEF));
+const norm = r => ((r % 360) + 540) % 360 - 180;           // -180〜180度にそろえる
+const snap = r => Math.abs(r - Math.round(r/90)*90) < 4 ? Math.round(r/90)*90 : r;
+$("rL").onclick = () => edit(s => s.rot = norm(Math.round((s.rot - 90)/90)*90));
+$("rR").onclick = () => edit(s => s.rot = norm(Math.round((s.rot + 90)/90)*90));
+$("del").onclick = async () => {
+  const it = items.find(x => x.id === openId);
+  if (!it || !confirm(`「${it.name}」を削除しますか？`)) return;
+  items = items.filter(x => x !== it); delete settings[it.id]; store.set("holo-r-settings", settings);
+  try { await rIdb.del(it.id); } catch(e){}
+  bcast({t:"del", id:it.id});
+  if (state.id === it.id) setState({id:null, playing:false});
+  openId = null; render();
+};
+pad.addEventListener("wheel", e => {
+  e.preventDefault();
+  const dy = e.deltaY || e.deltaX;
+  if (e.shiftKey) edit(s => s.rot = norm(s.rot + (dy > 0 ? 3 : -3)));
+  else edit(s => s.scale = clamp(s.scale * Math.exp(-dy * 0.0015), .15, 3));
+}, {passive:false});
+const pts = new Map(); let g = null;
+function begin(){
+  const p = [...pts.values()];
+  g = {s:def(settings[openId]), p:p.map(o => ({...o}))};
+  if (p.length > 1) { g.d = Math.hypot(p[1].x-p[0].x, p[1].y-p[0].y) || 1; g.a = Math.atan2(p[1].y-p[0].y, p[1].x-p[0].x); g.m = {x:(p[0].x+p[1].x)/2, y:(p[0].y+p[1].y)/2}; }
+}
+pad.addEventListener("pointerdown", e => { pad.setPointerCapture(e.pointerId); pts.set(e.pointerId, {x:e.clientX, y:e.clientY}); begin(); });
+pad.addEventListener("pointermove", e => {
+  if (!pts.has(e.pointerId) || !g) return;
+  pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  const p = [...pts.values()], M = Math.min(pw, ph), s = Object.assign({}, g.s);
+  if (p.length === 1) {
+    s.x = clamp(g.s.x + (p[0].x - g.p[0].x)/M, -.7, .7);
+    s.y = clamp(g.s.y + (p[0].y - g.p[0].y)/M, -.7, .7);
+  } else {
+    const d = Math.hypot(p[1].x-p[0].x, p[1].y-p[0].y), mid = {x:(p[0].x+p[1].x)/2, y:(p[0].y+p[1].y)/2};
+    s.scale = clamp(g.s.scale * d/g.d, .15, 3);
+    const a = Math.atan2(p[1].y-p[0].y, p[1].x-p[0].x);
+    s.rot = snap(norm(g.s.rot + (a - g.a)*180/Math.PI));
+    s.x = clamp(g.s.x + (mid.x - g.m.x)/M, -.7, .7);
+    s.y = clamp(g.s.y + (mid.y - g.m.y)/M, -.7, .7);
+  }
+  update(s);
+});
+const end = e => { pts.delete(e.pointerId); pts.size ? begin() : (g = null); };
+pad.addEventListener("pointerup", end);
+pad.addEventListener("pointercancel", end);
+})();
+</script>
+</body>
+</html>
